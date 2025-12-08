@@ -1,0 +1,121 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+
+include /usr/share/dpkg/architecture.mk
+include /usr/share/dpkg/buildflags.mk
+include /usr/share/dpkg/pkg-info.mk
+
+# Enable parallel builds.
+NUMJOBS = 1
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+  NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+  MAKEFLAGS += -j$(NUMJOBS)
+endif
+
+export RADCLI=1
+export WOLFSSL_INTERNAL=no
+# tlsa
+export KTLS_INCLUDE_TLSA=yes
+export LIBSSL_STATIC_SRCLIB=yes
+export LIBSSL_STATIC_SRCPATH=/usr/$(LIBDIR)
+
+# Modules not in the "main" kamailio package:
+EXCLUDED_MODULES =
+EXCLUDED_MODULES += mono
+EXCLUDED_MODULES += geoip
+
+# Extra modules to skip, because they are not compilable now:
+# - regardless if they go to the main kamailio package or to some module
+#   package, they will be excluded from compile and install of all.
+EXTRA_EXCLUDED_MODULES += bdb
+EXTRA_EXCLUDED_MODULES += dbtext
+EXTRA_EXCLUDED_MODULES += oracle
+EXTRA_EXCLUDED_MODULES += pa
+EXTRA_EXCLUDED_MODULES += iptrtpproxy
+EXTRA_EXCLUDED_MODULES += dnssec
+EXTRA_EXCLUDED_MODULES += java
+EXTRA_EXCLUDED_MODULES += python
+## --EXCLUDED--
+
+
+# Module groups that are packaged in separate packages (with the name
+# kamailio-$(group_name)-modules).
+# Note: the order is important (should be in dependency order, the one
+# on which other depend first)
+PACKAGE_GROUPS += MYSQL
+PACKAGE_GROUPS += POSTGRES
+PACKAGE_GROUPS += BERKELEY
+PACKAGE_GROUPS += UNIXODBC
+PACKAGE_GROUPS += RADIUS
+PACKAGE_GROUPS += PRESENCE
+PACKAGE_GROUPS += LDAP
+PACKAGE_GROUPS += XML
+PACKAGE_GROUPS += PERL
+PACKAGE_GROUPS += UTILS
+PACKAGE_GROUPS += LUA
+PACKAGE_GROUPS += MEMCACHED
+PACKAGE_GROUPS += SNMPSTATS
+#PACKAGE_GROUPS += CARRIERROUTE
+PACKAGE_GROUPS += XMPP
+PACKAGE_GROUPS += CPL
+PACKAGE_GROUPS += REDIS
+PACKAGE_GROUPS += GEOIP2
+PACKAGE_GROUPS += SQLITE
+PACKAGE_GROUPS += JSON
+PACKAGE_GROUPS += RUBY
+PACKAGE_GROUPS += IMS
+PACKAGE_GROUPS += SCTP
+PACKAGE_GROUPS += TLS
+PACKAGE_GROUPS += OUTBOUND
+PACKAGE_GROUPS += WEBSOCKET
+PACKAGE_GROUPS += AUTHEPH
+PACKAGE_GROUPS += KAZOO
+PACKAGE_GROUPS += CNXCC
+PACKAGE_GROUPS += ERLANG
+PACKAGE_GROUPS += SYSTEMD
+PACKAGE_GROUPS += PHONENUM
+PACKAGE_GROUPS += MONGODB
+PACKAGE_GROUPS += RABBITMQ
+PACKAGE_GROUPS += PYTHON3
+PACKAGE_GROUPS += MQTT
+PACKAGE_GROUPS += SECSIPID
+PACKAGE_GROUPS += LWSC
+PACKAGE_GROUPS += NATS
+PACKAGE_GROUPS += TLS_WOLFSSL
+PACKAGE_GROUPS += MICROHTTPD
+PACKAGE_GROUPS += KAFKA
+
+# Module groups to be packaged onto kamailio-extra-modules.
+EXTRA_GROUPS += EV
+EXTRA_GROUPS += GZCOMPRESS
+EXTRA_GROUPS += JANSSON
+EXTRA_GROUPS += UUID
+EXTRA_GROUPS += HTTP_ASYNC
+EXTRA_GROUPS += JWT
+
+.PHONY: skip-modules
+skip-modules:
+	@echo "$(EXCLUDED_MODULES) $(EXTRA_EXCLUDED_MODULES)"
+
+# https://wiki.debian.org/ReproducibleBuilds/
+export CFLAGS += -DVERSION_NODATE
+
+BUILD_GROUPS := $(addprefix K, $(PACKAGE_GROUPS) $(EXTRA_GROUPS))
+SKIP_MODULES  := $(EXCLUDED_MODULES) $(EXTRA_EXCLUDED_MODULES)
+
+build_cmake-components:
+	PACKAGE_GROUPS="$(PACKAGE_GROUPS)" debian/cmake-components
+
+%:
+	dh $@ --buildsystem=cmake
+
+
+override_dh_auto_configure:
+	dh_auto_configure --\
+		-DMODULE_GROUP_NAME="$(BUILD_GROUPS)" \
+		-DEXCLUDE_MODULES="$(SKIP_MODULES)"

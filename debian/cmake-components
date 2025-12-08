@@ -1,0 +1,8 @@
+#!/bin/bash
+echo "PACKAGE_GROUPS=${PACKAGE_GROUPS}"
+
+for i in ${PACKAGE_GROUPS}; do
+  grp=$(echo "${i}"|tr '[:upper:]' '[:lower:]'| tr '_' '-')
+  pkg="kamailio-${grp}-modules"
+  echo "K${i}" > "debian/${pkg}.cmake-components"
+done
